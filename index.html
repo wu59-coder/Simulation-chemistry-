@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Determination of Planck's Constant Lab</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #060913;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            background: #0f172a;
+            border-radius: 6px;
+            border: 1px solid #334155;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 15px #38bdf8;
+        }
+
+        .digital-readout {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+    <!-- Navbar -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-800/80 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid text-xl text-white fa-atom"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
+                        Planck's Constant Interactive Lab
+                    </h1>
+                    <p class="text-xs text-slate-400">Experimental Determination using Red, Green &amp; Blue LEDs</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="loadExperimentalData()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-2 shadow-lg shadow-cyan-900/20">
+                    <i class="fa-solid fa-file-import"></i> Pre-Load Lab Notebook Data
+                </button>
+                <button onclick="resetLab()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset Lab
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-4 py-6 w-full space-y-6">
+
+        <!-- Top Row: Interactive Circuit Simulator & Live LED Controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Canvas Physics Engine Panel -->
+            <div class="lg:col-span-7 glass-panel rounded-2xl p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip text-cyan-400"></i> Interactive 60 FPS Circuit Engine
+                    </h2>
+                    <span id="ledStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                        OFF
+                    </span>
+                </div>
+
+                <!-- Canvas -->
+                <div class="relative w-full aspect-[16/10] bg-slate-950/80 rounded-xl border border-slate-800/80 overflow-hidden">
+                    <canvas id="simCanvas" class="w-full h-full block"></canvas>
+                </div>
+
+                <!-- Live Measurements Bar -->
+                <div class="grid grid-cols-4 gap-2 mt-4">
+                    <div class="glass-card rounded-xl p-2.5 text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Frequency (f)</span>
+                        <div id="readoutFreq" class="digital-readout text-sm font-bold text-cyan-400">4.60 × 10¹⁴ Hz</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-2.5 text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Supplied (V)</span>
+                        <div id="readoutVoltage" class="digital-readout text-sm font-bold text-amber-400">0.00 V</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-2.5 text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Ideal V<sub>th</sub></span>
+                        <div id="readoutVth" class="digital-readout text-sm font-bold text-emerald-400">1.908 V</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-2.5 text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Current (I)</span>
+                        <div id="readoutCurrent" class="digital-readout text-sm font-bold text-rose-400">0.00 mA</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LED Controls & Adjustable Power Supply -->
+            <div class="lg:col-span-5 glass-panel rounded-2xl p-5 flex flex-col justify-between space-y-5">
+                <div>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-cyan-400"></i> LED Selection &amp; Voltage Source
+                    </h2>
+
+                    <!-- LED Selector -->
+                    <label class="text-xs text-slate-400 font-medium mb-2 block">Select LED Diode Color:</label>
+                    <div class="grid grid-cols-3 gap-3 mb-5">
+                        <button onclick="selectLED('red')" id="btnRed" class="py-3 px-2 rounded-xl font-bold text-xs border transition-all flex flex-col items-center gap-1.5 bg-red-950/40 border-red-500/50 text-red-300 ring-2 ring-red-500">
+                            <span class="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50"></span>
+                            Red (4.6×10¹⁴ Hz)
+                        </button>
+                        <button onclick="selectLED('green')" id="btnGreen" class="py-3 px-2 rounded-xl font-bold text-xs border transition-all flex flex-col items-center gap-1.5 bg-slate-900 border-slate-700 text-slate-400 opacity-70 hover:opacity-100">
+                            <span class="w-4 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
+                            Green (5.6×10¹⁴ Hz)
+                        </button>
+                        <button onclick="selectLED('blue')" id="btnBlue" class="py-3 px-2 rounded-xl font-bold text-xs border transition-all flex flex-col items-center gap-1.5 bg-slate-900 border-slate-700 text-slate-400 opacity-70 hover:opacity-100">
+                            <span class="w-4 h-4 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
+                            Blue (6.4×10¹⁴ Hz)
+                        </button>
+                    </div>
+
+                    <!-- Variable Voltage Slider -->
+                    <div class="space-y-3 glass-card rounded-xl p-4 border border-slate-800">
+                        <div class="flex justify-between items-center">
+                            <label for="voltageSlider" class="text-xs font-bold text-slate-300">DC Voltage Supply Control</label>
+                            <span id="sliderValDisplay" class="digital-readout font-bold text-amber-400 text-base">0.00 V</span>
+                        </div>
+                        <input type="range" id="voltageSlider" min="0" max="3.50" step="0.01" value="0.00" oninput="updateVoltage(this.value)" class="w-full">
+
+                        <!-- Fine Adjustment Buttons -->
+                        <div class="grid grid-cols-4 gap-2 pt-1">
+                            <button onclick="adjustVoltage(-0.10)" class="py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold border border-slate-700">-0.10V</button>
+                            <button onclick="adjustVoltage(-0.01)" class="py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold border border-slate-700">-0.01V</button>
+                            <button onclick="adjustVoltage(0.01)" class="py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold border border-slate-700">+0.01V</button>
+                            <button onclick="adjustVoltage(0.10)" class="py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold border border-slate-700">+0.10V</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record Measurement CTA -->
+                <div class="glass-card p-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 flex flex-col gap-2">
+                    <p class="text-xs text-slate-300">Adjust voltage until LED first emits light, then record your observed turn-on voltage:</p>
+                    <button onclick="recordCurrentThreshold()" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-cyan-500/20 transition">
+                        <i class="fa-solid fa-plus-circle mr-1.5"></i> Record Voltage into Trial Table
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Middle Row: Experimental Data Table & Live Graph -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Data Table (Lab Notebook Exact Values) -->
+            <div class="lg:col-span-6 glass-panel rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-table text-cyan-400"></i> Measured Experimental Trials
+                        </h2>
+                        <span class="text-xs text-slate-400">Series Resistor: 220 Ω</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 font-sans">
+                                    <th class="pb-2">LED</th>
+                                    <th class="pb-2 text-center">Freq (10¹⁴ Hz)</th>
+                                    <th class="pb-2 text-center">Trials 1-5 (V)</th>
+                                    <th class="pb-2 text-right">Mean V<sub>th</sub> (V)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                <tr>
+                                    <td class="py-3 font-semibold text-red-400 flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Red
+                                    </td>
+                                    <td class="text-center text-slate-300">4.60</td>
+                                    <td id="trialsRed" class="text-center text-slate-400">1.89, 1.93, 1.90, 1.87, 1.95</td>
+                                    <td id="meanRed" class="text-right text-amber-400 font-bold">1.908 V</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-semibold text-emerald-400 flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Green
+                                    </td>
+                                    <td class="text-center text-slate-300">5.60</td>
+                                    <td id="trialsGreen" class="text-center text-slate-400">2.35, 2.29, 2.30, 2.34, 2.31</td>
+                                    <td id="meanGreen" class="text-right text-amber-400 font-bold">2.318 V</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-semibold text-blue-400 flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Blue
+                                    </td>
+                                    <td class="text-center text-slate-300">6.40</td>
+                                    <td id="trialsBlue" class="text-center text-slate-400">2.63, 2.67, 2.65, 2.64, 2.66</td>
+                                    <td id="meanBlue" class="text-right text-amber-400 font-bold">2.650 V</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
+                    <span>Initial Circuit Source: <strong class="text-slate-200">7.75 V</strong></span>
+                    <button onclick="clearTrials()" class="text-slate-400 hover:text-rose-400 transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Clear Trials
+                    </button>
+                </div>
+            </div>
+
+            <!-- Linear Regression Chart -->
+            <div class="lg:col-span-6 glass-panel rounded-2xl p-5 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-cyan-400"></i> Threshold Voltage vs. Frequency
+                    </h2>
+                    <span class="text-xs font-mono text-cyan-400">V = (h/e) · f</span>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="relative w-full h-56">
+                    <canvas id="planckChart"></canvas>
+                </div>
+
+                <!-- Calculated Planck Result Display -->
+                <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800">
+                    <div class="glass-card p-2 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Gradient (m = h/e)</span>
+                        <div id="gradientVal" class="digital-readout text-xs font-bold text-cyan-400">4.122 × 10⁻¹⁵ V·s</div>
+                    </div>
+                    <div class="glass-card p-2 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">Calculated h</span>
+                        <div id="calculatedHVal" class="digital-readout text-xs font-bold text-emerald-400">6.604 × 10⁻³⁴ J·s</div>
+                    </div>
+                    <div class="glass-card p-2 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold">% Error</span>
+                        <div id="errorVal" class="digital-readout text-xs font-bold text-amber-400">-0.33%</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Row: Scientific Derivation & Theory Panel -->
+        <div class="glass-panel rounded-2xl p-6">
+            <h2 class="text-base font-bold text-slate-200 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-book-bookmark text-cyan-400"></i> Scientific Theory &amp; Step-by-Step Derivation
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
+                <div class="space-y-2 glass-card p-4 rounded-xl">
+                    <h3 class="font-bold text-cyan-300 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-400 text-center leading-4 font-mono">1</span>
+                        LED Energy Emission
+                    </h3>
+                    <p class="leading-relaxed text-slate-400">
+                        When an electron recombines with a hole inside an LED's p-n junction, it emits a single photon with energy equal to the semiconductor bandgap ($E_g$).
+                    </p>
+                    <div class="font-mono bg-slate-950 p-2 rounded border border-slate-800 text-center text-cyan-300">
+                        e · V<sub>th</sub> ≈ E<sub>g</sub> = h · f
+                    </div>
+                </div>
+
+                <div class="space-y-2 glass-card p-4 rounded-xl">
+                    <h3 class="font-bold text-cyan-300 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-400 text-center leading-4 font-mono">2</span>
+                        Linear Regression Slope
+                    </h3>
+                    <p class="leading-relaxed text-slate-400">
+                        Plotting $V_{th}$ on the y-axis against photon frequency $f$ on the x-axis yields a straight line equation: $V_{th} = \left(\frac{h}{e}\right) f$.
+                    </p>
+                    <div class="font-mono bg-slate-950 p-2 rounded border border-slate-800 text-center text-amber-300">
+                        m = ΔV<sub>th</sub> / Δf = h / e
+                    </div>
+                </div>
+
+                <div class="space-y-2 glass-card p-4 rounded-xl">
+                    <h3 class="font-bold text-cyan-300 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-400 text-center leading-4 font-mono">3</span>
+                        Extracting Planck's Constant
+                    </h3>
+                    <p class="leading-relaxed text-slate-400">
+                        Multiplying the gradient $m$ by the elementary charge ($e = 1.60217663 \times 10^{-19} \text{ C}$) yields the experimental Planck constant.
+                    </p>
+                    <div class="font-mono bg-slate-950 p-2 rounded border border-slate-800 text-center text-emerald-300">
+                        h = m · e ≈ 6.626 × 10⁻³⁴ J·s
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel border-t border-slate-800/80 px-4 py-4 text-center text-xs text-slate-500">
+        <p>Interactive Physics Virtual Laboratory • Determination of Planck's Constant ($h$)</p>
+    </footer>
+
+    <!-- Simulation Script Logic -->
+    <script>
+        // Physical Constants
+        const E_CHARGE = 1.60217663e-19; // Elementary charge in Coulombs
+        const H_ACCEPTED = 6.62607015e-34; // Accepted Planck's Constant in J·s
+
+        // 3 Experimental LEDs Data Structure
+        const LED_DATA = {
+            red: {
+                name: 'Red LED',
+                colorHex: '#ef4444',
+                glowHex: 'rgba(239, 68, 68, 0.8)',
+                freq: 4.60e14, // 4.6 * 10^14 Hz
+                freqDisplay: '4.60 × 10¹⁴ Hz',
+                trials: [1.89, 1.93, 1.90, 1.87, 1.95],
+                meanVth: 1.908
+            },
+            green: {
+                name: 'Green LED',
+                colorHex: '#10b981',
+                glowHex: 'rgba(16, 185, 129, 0.8)',
+                freq: 5.60e14, // 5.6 * 10^14 Hz
+                freqDisplay: '5.60 × 10¹⁴ Hz',
+                trials: [2.35, 2.29, 2.30, 2.34, 2.31],
+                meanVth: 2.318
+            },
+            blue: {
+                name: 'Blue LED',
+                colorHex: '#3b82f6',
+                glowHex: 'rgba(59, 130, 246, 0.8)',
+                freq: 6.40e14, // 6.4 * 10^14 Hz
+                freqDisplay: '6.40 × 10¹⁴ Hz',
+                trials: [2.63, 2.67, 2.65, 2.64, 2.66],
+                meanVth: 2.650
+            }
+        };
+
+        // Active State Variables
+        let currentLedKey = 'red';
+        let currentVoltage = 0.00;
+        let activeTrials = {
+            red: [1.89, 1.93, 1.90, 1.87, 1.95],
+            green: [2.35, 2.29, 2.30, 2.34, 2.31],
+            blue: [2.63, 2.67, 2.65, 2.64, 2.66]
+        };
+
+        // Canvas Particles
+        let electronParticles = [];
+        let photonParticles = [];
+        let animationFrameId = null;
+
+        // Chart.js Instance
+        let planckChartInstance = null;
+
+        // Shockley Diode Current Model
+        function calculateDiodeCurrent(voltage, vTh) {
+            if (voltage <= 0) return 0;
+            const vt = 0.04; // Thermal voltage factor
+            if (voltage < vTh) {
+                return 0.001 * (Math.exp(voltage / (vTh * 0.4)) - 1);
+            } else {
+                const overvoltage = voltage - vTh;
+                return 0.15 + (overvoltage / 220) * 1000 + Math.pow(overvoltage, 2) * 15; // Current in mA
+            }
+        }
+
+        // Initialize Application on Window Load
+        window.onload = function() {
+            initCanvas();
+            initChart();
+            selectLED('red');
+            updateRegressionAnalysis();
+            animateLoop();
+        };
+
+        // Select LED Function
+        function selectLED(key) {
+            currentLedKey = key;
+            const led = LED_DATA[key];
+
+            // Update Buttons Styling
+            ['red', 'green', 'blue'].forEach(k => {
+                const btn = document.getElementById('btn' + k.charAt(0).toUpperCase() + k.slice(1));
+                if (k === key) {
+                    btn.className = `py-3 px-2 rounded-xl font-bold text-xs border transition-all flex flex-col items-center gap-1.5 ${
+                        k === 'red' ? 'bg-red-950/40 border-red-500/50 text-red-300 ring-2 ring-red-500' :
+                        k === 'green' ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300 ring-2 ring-emerald-500' :
+                        'bg-blue-950/40 border-blue-500/50 text-blue-300 ring-2 ring-blue-500'
+                    }`;
+                } else {
+                    btn.className = 'py-3 px-2 rounded-xl font-bold text-xs border transition-all flex flex-col items-center gap-1.5 bg-slate-900 border-slate-700 text-slate-400 opacity-70 hover:opacity-100';
+                }
+            });
+
+            // Update Readouts
+            document.getElementById('readoutFreq').innerText = led.freqDisplay;
+            document.getElementById('readoutVth').innerText = led.meanVth.toFixed(3) + ' V';
+            
+            updatePhysicsReadouts();
+        }
+
+        // Slider & Voltage Control
+        function updateVoltage(val) {
+            currentVoltage = parseFloat(val);
+            document.getElementById('sliderValDisplay').innerText = currentVoltage.toFixed(2) + ' V';
+            updatePhysicsReadouts();
+        }
+
+        function adjustVoltage(delta) {
+            let newVal = Math.min(Math.max(currentVoltage + delta, 0), 3.50);
+            document.getElementById('voltageSlider').value = newVal.toFixed(2);
+            updateVoltage(newVal);
+        }
+
+        // Physics State Readout Updates
+        function updatePhysicsReadouts() {
+            const led = LED_DATA[currentLedKey];
+            const current = calculateDiodeCurrent(currentVoltage, led.meanVth);
+
+            document.getElementById('readoutVoltage').innerText = currentVoltage.toFixed(2) + ' V';
+            document.getElementById('readoutCurrent').innerText = current.toFixed(2) + ' mA';
+
+            const badge = document.getElementById('ledStatusBadge');
+            if (currentVoltage >= led.meanVth) {
+                badge.innerText = 'ON - EMITTING PHOTONS';
+                badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-500/40 animate-pulse';
+            } else {
+                badge.innerText = 'OFF - BELOW THRESHOLD';
+                badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+            }
+        }
+
+        // Record Current Threshold into Table
+        function recordCurrentThreshold() {
+            if (!activeTrials[currentLedKey]) activeTrials[currentLedKey] = [];
+            activeTrials[currentLedKey].push(parseFloat(currentVoltage.toFixed(2)));
+            renderTrialsTable();
+            updateRegressionAnalysis();
+        }
+
+        // Load Notebook Data
+        function loadExperimentalData() {
+            activeTrials = {
+                red: [1.89, 1.93, 1.90, 1.87, 1.95],
+                green: [2.35, 2.29, 2.30, 2.34, 2.31],
+                blue: [2.63, 2.67, 2.65, 2.64, 2.66]
+            };
+            renderTrialsTable();
+            updateRegressionAnalysis();
+        }
+
+        function clearTrials() {
+            activeTrials = { red: [], green: [], blue: [] };
+            renderTrialsTable();
+            updateRegressionAnalysis();
+        }
+
+        // Render Data Table & Calculate Averages
+        function renderTrialsTable() {
+            ['red', 'green', 'blue'].forEach(k => {
+                const trials = activeTrials[k];
+                const trialsEl = document.getElementById('trials' + k.charAt(0).toUpperCase() + k.slice(1));
+                const meanEl = document.getElementById('mean' + k.charAt(0).toUpperCase() + k.slice(1));
+
+                if (trials.length > 0) {
+                    trialsEl.innerText = trials.join(', ');
+                    const avg = trials.reduce((a, b) => a + b, 0) / trials.length;
+                    meanEl.innerText = avg.toFixed(3) + ' V';
+                    LED_DATA[k].meanVth = avg;
+                } else {
+                    trialsEl.innerText = 'No trials recorded';
+                    meanEl.innerText = '-- V';
+                    LED_DATA[k].meanVth = 0;
+                }
+            });
+            updatePhysicsReadouts();
+        }
+
+        // Linear Regression Logic
+        function updateRegressionAnalysis() {
+            let points = [];
+            ['red', 'green', 'blue'].forEach(k => {
+                if (LED_DATA[k].meanVth > 0) {
+                    points.push({
+                        x: LED_DATA[k].freq,
+                        y: LED_DATA[k].meanVth,
+                        key: k
+                    });
+                }
+            });
+
+            if (points.length >= 2) {
+                // Compute Linear Regression: y = m*x + c
+                let n = points.length;
+                let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+                points.forEach(p => {
+                    sumX += p.x;
+                    sumY += p.y;
+                    sumXY += p.x * p.y;
+                    sumXX += p.x * p.x;
+                });
+
+                let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                let intercept = (sumY - slope * sumX) / n;
+
+                let hExp = slope * E_CHARGE;
+                let pctError = ((hExp - H_ACCEPTED) / H_ACCEPTED) * 100;
+
+                // Update UI Readouts
+                document.getElementById('gradientVal').innerText = (slope * 1e14).toFixed(3) + ' × 10⁻¹⁵ V·s';
+                document.getElementById('calculatedHVal').innerText = (hExp * 1e34).toFixed(3) + ' × 10⁻³⁴ J·s';
+                document.getElementById('errorVal').innerText = (pctError >= 0 ? '+' : '') + pctError.toFixed(2) + '%';
+
+                // Update Chart
+                if (planckChartInstance) {
+                    planckChartInstance.data.datasets[0].data = points.map(p => ({ x: p.x / 1e14, y: p.y }));
+                    
+                    // Generate best-fit line points
+                    let minX = 4.0;
+                    let maxX = 7.0;
+                    planckChartInstance.data.datasets[1].data = [
+                        { x: minX, y: (slope * (minX * 1e14) + intercept) },
+                        { x: maxX, y: (slope * (maxX * 1e14) + intercept) }
+                    ];
+                    planckChartInstance.update();
+                }
+            } else if (planckChartInstance) {
+                planckChartInstance.data.datasets[0].data = [];
+                planckChartInstance.data.datasets[1].data = [];
+                planckChartInstance.update();
+            }
+        }
+
+        // Initialize Chart.js
+        function initChart() {
+            const ctx = document.getElementById('planckChart').getContext('2d');
+            planckChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Experimental Data Points',
+                            data: [
+                                { x: 4.60, y: 1.908 },
+                                { x: 5.60, y: 2.318 },
+                                { x: 6.40, y: 2.650 }
+                            ],
+                            backgroundColor: ['#ef4444', '#10b981', '#3b82f6'],
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        },
+                        {
+                            label: 'Best-Fit Line (Slope = h/e)',
+                            data: [],
+                            type: 'line',
+                            borderColor: '#38bdf8',
+                            borderWidth: 2,
+                            borderDash: [4, 4],
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: { display: true, text: 'Frequency f (× 10¹⁴ Hz)', color: '#94a3b8' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' },
+                            min: 4.0,
+                            max: 7.0
+                        },
+                        y: {
+                            title: { display: true, text: 'Threshold Voltage V_th (V)', color: '#94a3b8' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' },
+                            min: 1.5,
+                            max: 3.0
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+
+        // Canvas Simulation Setup (Electron flow & Quantum Photon Emitter)
+        let canvas, ctx;
+        function initCanvas() {
+            canvas = document.getElementById('simCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Initialize electron circuit loop particles
+            electronParticles = [];
+            for (let i = 0; i < 35; i++) {
+                electronParticles.push({
+                    t: i / 35 // normalized position along loop [0, 1]
+                });
+            }
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        // Main Animation Loop (60 FPS)
+        function animateLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const led = LED_DATA[currentLedKey];
+            const current = calculateDiodeCurrent(currentVoltage, led.meanVth);
+
+            // Circuit Wiring Coordinates
+            const margin = Math.min(width, height) * 0.15;
+            const circuitRect = {
+                left: margin,
+                top: margin,
+                right: width - margin,
+                bottom: height - margin * 1.2
+            };
+
+            // Draw Background Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 20;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Draw Wire Traces
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.roundRect(circuitRect.left, circuitRect.top, circuitRect.right - circuitRect.left, circuitRect.bottom - circuitRect.top, 16);
+            ctx.stroke();
+
+            // Draw DC Battery Power Source (Left side)
+            const batX = circuitRect.left;
+            const batY = (circuitRect.top + circuitRect.bottom) / 2;
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(batX - 15, batY - 25, 30, 50);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(batX - 15, batY - 25, 30, 50);
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 11px Inter';
+            ctx.fillText('DC V', batX - 12, batY + 4);
+
+            // Draw Resistor (Top side)
+            const resX = (circuitRect.left + circuitRect.right) / 2;
+            const resY = circuitRect.top;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(resX - 30, resY - 12, 60, 24);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(resX - 30, resY - 12, 60, 24);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText('220 Ω', resX - 16, resY + 4);
+
+            // LED Assembly (Bottom side)
+            const ledX = (circuitRect.left + circuitRect.right) / 2;
+            const ledY = circuitRect.bottom;
+
+            // Animate Electrons along Wire
+            if (current > 0.01) {
+                const speed = 0.001 + Math.min(current, 50) * 0.0003;
+                ctx.fillStyle = '#38bdf8';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 6;
+
+                electronParticles.forEach(p => {
+                    p.t = (p.t + speed) % 1;
+                    const pos = getPointAlongRect(circuitRect, p.t);
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.shadowBlur = 0; // reset
+            }
+
+            // Draw LED Bulb Schematic & Photo-Detector Head
+            const isEmitting = currentVoltage >= led.meanVth;
+            const brightness = isEmitting ? Math.min(1, 0.3 + (currentVoltage - led.meanVth) * 1.2) : 0;
+
+            // Detector Plate ABOVE LED
+            const detY = ledY - 80;
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.fillRect(ledX - 35, detY - 10, 70, 20);
+            ctx.strokeRect(ledX - 35, detY - 10, 70, 20);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px Inter';
+            ctx.fillText('PHOTODETECTOR', ledX - 33, detY + 3);
+
+            // Light Glow Effect
+            if (isEmitting) {
+                const glowGradient = ctx.createRadialGradient(ledX, ledY - 15, 5, ledX, ledY - 15, 65 * brightness);
+                glowGradient.addColorStop(0, led.glowHex);
+                glowGradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(ledX, ledY - 15, 65 * brightness, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Spawn Photons heading upwards towards detector
+                if (Math.random() < 0.6) {
+                    photonParticles.push({
+                        x: ledX + (Math.random() - 0.5) * 16,
+                        y: ledY - 20,
+                        vy: -2 - Math.random() * 2,
+                        opacity: 1.0
+                    });
+                }
+            }
+
+            // Render Animated Photons
+            ctx.lineWidth = 2;
+            for (let i = photonParticles.length - 1; i >= 0; i--) {
+                let pt = photonParticles[i];
+                pt.y += pt.vy;
+                pt.opacity -= 0.025;
+
+                if (pt.y <= detY || pt.opacity <= 0) {
+                    photonParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.strokeStyle = led.colorHex;
+                ctx.globalAlpha = pt.opacity;
+                ctx.beginPath();
+                // Draw wave packet
+                ctx.moveTo(pt.x, pt.y);
+                ctx.lineTo(pt.x + Math.sin(pt.y * 0.3) * 4, pt.y - 6);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+
+            // Draw Physical LED Dome
+            ctx.fillStyle = isEmitting ? led.colorHex : '#1e293b';
+            ctx.strokeStyle = isEmitting ? '#ffffff' : '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ledX, ledY - 15, 14, Math.PI, 0, false);
+            ctx.lineTo(ledX + 14, ledY);
+            ctx.lineTo(ledX - 14, ledY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Loop animation
+            animationFrameId = requestAnimationFrame(animateLoop);
+        }
+
+        // Utility: Convert normalized t along rect path to (x, y) coordinates
+        function getPointAlongRect(rect, t) {
+            const w = rect.right - rect.left;
+            const h = rect.bottom - rect.top;
+            const total = 2 * (w + h);
+            let dist = t * total;
+
+            if (dist <= w) {
+                return { x: rect.left + dist, y: rect.top };
+            } else if (dist <= w + h) {
+                return { x: rect.right, y: rect.top + (dist - w) };
+            } else if (dist <= 2 * w + h) {
+                return { x: rect.right - (dist - (w + h)), y: rect.bottom };
+            } else {
+                return { x: rect.left, y: rect.bottom - (dist - (2 * w + h)) };
+            }
+        }
+    </script>
+</body>
+</html>
